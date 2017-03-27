@@ -8,14 +8,14 @@ moduleForComponent('dummy-box', 'Integration | Component | dummy box', {
 
 test('it renders', function(assert) {
   this.render(hbs`{{dummy-box}}`);
-  assert.equal(this.$().text().trim(), '');
+  assert.ok(this.$().length);
 
   this.render(hbs`
     {{#dummy-box}}
       This is a dummy box!
     {{/dummy-box}}
   `);
-  assert.equal(this.$().text().trim(), 'This is a dummy box!');
+  assert.ok(this.$().text().trim().indexOf('This is a dummy box!') >= 0);
 
   percySnapshot('dummy box test');
 

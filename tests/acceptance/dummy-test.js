@@ -43,3 +43,11 @@ test('enableJavaScript option can pass through', function(assert) {
   });
   percySnapshot(assert, {enableJavaScript: true});
 });
+
+test('clientScaling option performs scaling on the client', function(assert) {
+  visit('/');
+  andThen(function() {
+    assert.equal(currentURL(), '/');
+  });
+  return percySnapshot(assert, {clientScaling: true});
+});
