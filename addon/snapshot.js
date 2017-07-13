@@ -38,6 +38,58 @@ function setAttributeValues(dom) {
   return dom;
 }
 
+// `Ember.TextArea` sets its content by updating `value` directly, this results in the `textarea`
+// having empty `textContent` once cloned; additionally, the `value` is also lost during cloning in
+// some browsers.
+// These issues are solved by extracting the `value`s from the original, marking them with a temp
+// class, then pushing the `value`s into the clone by setting `textContent` (using the temp class
+// names to map between the original and clone).
+const TEXTAREA_MAPPING_CLASS_PREFIX = '__temp__percy-textarea-';
+let textareaIndex = 0;
+function markTextareasAndGetValues(dom) {
+  const values = {};
+
+  dom.find('textarea').each(function() {
+    const textarea = Ember.$(this);
+    const textareaClass = `${TEXTAREA_MAPPING_CLASS_PREFIX}${textareaIndex++}`;
+
+    values[textareaClass] = textarea.val();
+    textarea.addClass(textareaClass);
+  });
+
+  return values;
+}
+
+function fixTextareas(dom, valuesMap) {
+  for(let textareaClass in valuesMap) {
+    if(!valuesMap.hasOwnProperty(textareaClass)) {
+      continue;
+    }
+
+    const value = valuesMap[textareaClass];
+    dom
+      .find(`.${textareaClass}`)
+      .removeClass(textareaClass)
+      .text(value);
+  }
+
+  return dom;
+}
+
+function unmarkTextareas(dom, valuesMap) {
+  for(let textareaClass in valuesMap) {
+    if(!valuesMap.hasOwnProperty(textareaClass)) {
+      continue;
+    }
+
+    dom
+      .find(`.${textareaClass}`)
+      .removeClass(textareaClass);
+  }
+
+  return dom;
+}
+
 export function percySnapshot(name, options) {
   // Skip if Testem is not available (we're probably running from `ember server` and Percy is not
   // enabled anyway).
@@ -57,9 +109,15 @@ export function percySnapshot(name, options) {
   options = options || {};
   let scope = options.scope;
 
+  const domOriginal = Ember.$('html');
+  const textareaValues = markTextareasAndGetValues(domOriginal);
+
   // Create a full-page DOM snapshot from the current testing page.
   // TODO(fotinakis): more memory-efficient way to do this?
-  let domCopy = Ember.$('html').clone();
+  let domCopy = domOriginal.clone();
+
+  unmarkTextareas(domOriginal, textareaValues);
+
   let testingContainer = domCopy.find('#ember-testing');
 
   if (scope) {
@@ -68,7 +126,10 @@ export function percySnapshot(name, options) {
     snapshotRoot = testingContainer;
   }
 
-  let snapshotHtml = setAttributeValues(snapshotRoot).html();
+  snapshotRoot = setAttributeValues(snapshotRoot);
+  snapshotRoot = fixTextareas(snapshotRoot, textareaValues);
+
+  let snapshotHtml = snapshotRoot.html();
 
   // Hoist the testing container contents up to the body.
   // We need to use the original DOM to keep the head stylesheet around.
